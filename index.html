@@ -37,7 +37,7 @@
       width: 18px;
       height: 18px;
       border-radius: 50%;
-      background: #555;
+      background: #ffffff;
       position: relative;
       overflow: hidden;
     }
@@ -50,17 +50,93 @@
       width: 18px;
       height: 18px;
       border-radius: 50%;
-      background: #f2f2f2; /* mesma cor do fundo do círculo */
+      background: #6e6e6e; 
     }
     .sun {
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: #f5b301; /* mesmo amarelo já utilizado */
+        background: #f5b301; 
+        
     }
+    body:not(.dark) .top-right-icon {
+        background: #6e6e6e;
+    }
+    .datetime-box {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: #ffffff;
+        height: 40px;
+        border: 1px solid #6e6e6e;
+        border-radius: 999px;       /* formato de pílula */
+        width: 150px;
+        background: #6e6e6e;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        justify-content: center;
+    }
+
+    .datetime-box #datetime {
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .datetime-box .datetime-sub {
+        font-size: 12px;
+        text-align: center;
+        margin-top: 2px;
+    }
+
+    /* modo dark */
+    body.dark .datetime-box {
+        color: #000000;
+        border-color: #f2f2f2;
+        background: #f2f2f2;
+    }
+
+    .top-pill {
+        position: fixed;
+        top: 10px;
+        left: 170px;   /* ajuste fino conforme o tamanho da pílula da data */
+        right: 60px;   /* espaço antes do ícone da lua/sol */
+        height: 40px;
+        border: 1px solid #6e6e6e;
+        border-radius: 999px;
+        background: #6e6e6e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .top-pill-text {
+        font-size: 25px;
+        font-weight: 600;
+        color: #ffffff;
+        font-family: "Segoe UI", sans-serif;
+    }
+
+    /* modo dark */
+    body.dark .top-pill {
+        border-color: #f2f2f2;
+        background: #f2f2f2;
+    }
+    body.dark .top-pill-text {
+        color: #000000;
+    }
+    
   </style>
+
+  
 </head>
 <body>
+  <div class="datetime-box">
+    <div id="datetime"></div>
+    <div class="datetime-sub">Última Atualização</div>
+  </div>
+
+  <div class="top-pill">
+    <span class="top-pill-text">Título do Dashboard</span>
+  </div>
 
   <div class="top-right-icon" id="themeToggle">
     <div class="moon" id="iconShape"></div>
@@ -75,6 +151,22 @@
         icon.classList.toggle('sun');
         document.body.classList.toggle('dark');
     });
+    function atualizarDataHora() {
+        const agora = new Date();
+
+        const dia = String(agora.getDate()).padStart(2, '0');
+        const mes = String(agora.getMonth() + 1).padStart(2, '0');
+        const ano = String(agora.getFullYear()).slice(-2);
+
+        const hora = String(agora.getHours()).padStart(2, '0');
+        const min = String(agora.getMinutes()).padStart(2, '0');
+
+        const formatado = `${hora}:${min} - ${dia}/${mes}/${ano}`;
+        document.getElementById('datetime').textContent = formatado;
+    }
+
+    atualizarDataHora();
+    setInterval(atualizarDataHora, 1000);
   </script>
 
 </body>
