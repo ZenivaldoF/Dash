@@ -21,8 +21,8 @@
       position: fixed;
       top: 10px;
       right: 10px;
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       background: #f2f2f2;
       display: flex;
@@ -107,6 +107,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
     .top-pill-text {
         font-size: 25px;
@@ -123,7 +124,83 @@
     body.dark .top-pill-text {
         color: #000000;
     }
+
+    .main-container {
+        position: fixed;
+        top: 60px;              /* 40px da pílula + 20px de espaçamento + 10px margem */
+        left: 10px;
+        right: 10px;
+        bottom: 25px;
+        border: 1px solid #6e6e6e;
+        border-radius: 20px;    /* mesma “sensação” das pílulas */
+        background: #6e6e6e;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    body.dark .main-container {
+        border-color: #f2f2f2;
+        background: #f2f2f2;
+    }
+    .footer-text {
+        position: fixed;
+        bottom: 8px;
+        width: 100%;
+        text-align: right;
+        font-size: 11px;
+        color: #ffffff;
+    }
+
+    body.dark .footer-text {
+        color: #000000;
+    }
+
+    .table-wrapper {
+        width: 100%;
+        height: 100%;
+        overflow: auto;              /* scroll para 500+ linhas */
+        padding: 12px;
+        box-sizing: border-box;
+    }
+
+    #data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    #data-table thead {
+        position: sticky;
+        top: 0;
+        background: #ffffff;
+        z-index: 1;
+    }
+
+    #data-table th,
+    #data-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+        white-space: nowrap;
+    }
     
+
+    #data-table th {
+        font-weight: 600;
+    }
+
+    /* modo dark */
+    body.dark #data-table thead {
+        background: #000000;
+    }
+
+    body.dark #data-table thead th {
+        color: #ffffff;
+    }
+
+    body.dark #data-table th,
+    body.dark #data-table td {
+        color: #000000;
+        border-bottom: 1px solid #333;
+    }
   </style>
 
   
@@ -142,9 +219,20 @@
     <div class="moon" id="iconShape"></div>
   </div>
 
+  <div class="main-container">
+  <div class="table-wrapper">
+    <table id="data-table">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  </div>
+
+  <div class="footer-text">Desenvolvido por Zenivaldo França da Silva Filho</div>
   <script>
     const toggle = document.getElementById('themeToggle');
     const icon = document.getElementById('iconShape');
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzbI6iAmuwriBNtpWHBTJ_63vKSJdFoSZb7bN9-H9qQkF9qnBLoO_M6kQRoX0WrVAGsyw/exec';
 
     toggle.addEventListener('click', () => {
         icon.classList.toggle('moon');
@@ -165,8 +253,60 @@
         document.getElementById('datetime').textContent = formatado;
     }
 
+    function carregarDados(){
+        fetch(API_URL)
+            .then(res => res.json())
+            .then(data => montarTabela(data))
+            .catch(err => console.error('Erro ao carregar dados:', err));
+    }
+    function montarTabela(dados) {
+        if (!dados || dados.length === 0) return;
+
+        const table = document.getElementById('data-table');
+        const thead = table.querySelector('thead');
+        const tbody = table.querySelector('tbody');
+
+        // limpa conteúdo anterior
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        // colunas (usa as chaves do primeiro objeto)
+        const colunas = Object.keys(dados[0]);
+
+        // monta cabeçalho
+        const trHead = document.createElement('tr');
+        colunas.forEach(col => {
+            const th = document.createElement('th');
+            th.textContent = col;
+            trHead.appendChild(th)
+        });
+        thead.appendChild(trHead);
+
+        // monta linhas
+        dados.forEach(linha => {
+        const tr = document.createElement('tr');
+
+        colunas.forEach(col => {
+            const td = document.createElement('td');
+            let valor = linha[col];
+
+            if (typeof valor === 'string' && valor.includes('T')) {
+                valor = valor.replace('T', ' ').replace('.000Z', '');
+            }
+
+            td.textContent = valor;
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+        });
+    }
+
+    carregarDados();
     atualizarDataHora();
-    setInterval(atualizarDataHora, 1000);
+    // atualiza a cada 5 minutos
+    setInterval(carregarDados, 3000);
+    setInterval(atualizarDataHora, 3000);
   </script>
 
 </body>
