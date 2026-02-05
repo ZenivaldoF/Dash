@@ -154,11 +154,14 @@
     }
 
     .table-wrapper {
+        position: absolute;
+        bottom: 5px;
         width: 100%;
-        height: 100%;
+        height: 30%;
         overflow: auto;              /* scroll para 500+ linhas */
         padding: 12px;
         box-sizing: border-box;
+        border-top: 1px solid #aaa;
     }
 
     #data-table {
@@ -168,7 +171,7 @@
     }
 
     #data-table thead {
-        position: sticky;
+        position:sticky;
         top: 0;
         background: #ffffff;
         z-index: 1;
@@ -201,6 +204,25 @@
         color: #000000;
         border-bottom: 1px solid #333;
     }
+
+    .chart-container {
+        position: absolute;
+        top: 330px;
+        left: 10px;
+
+        width: 99%;
+        height: 30%;
+
+        background: rgba(255,255,255,0.05);
+        border-radius: 20px;
+        padding: 10px;
+        box-sizing: border-box;
+    }
+
+    /* modo dark */
+    body.dark .chart-container {
+        background: rgba(0,0,0,0.05);
+    }
   </style>
 
   
@@ -220,6 +242,9 @@
   </div>
 
   <div class="main-container">
+    <div class="chart-container">
+        <canvas id="lineChart"></canvas>
+    </div>
   <div class="table-wrapper">
     <table id="data-table">
       <thead></thead>
@@ -229,7 +254,12 @@
   </div>
 
   <div class="footer-text">Desenvolvido por Zenivaldo França da Silva Filho</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <script>
+    let lineChart;
+
     const toggle = document.getElementById('themeToggle');
     const icon = document.getElementById('iconShape');
     const API_URL = 'https://script.google.com/macros/s/AKfycbzbI6iAmuwriBNtpWHBTJ_63vKSJdFoSZb7bN9-H9qQkF9qnBLoO_M6kQRoX0WrVAGsyw/exec';
@@ -256,7 +286,10 @@
     function carregarDados(){
         fetch(API_URL)
             .then(res => res.json())
-            .then(data => montarTabela(data))
+            .then(data => {
+                montarTabela(data);
+                montarGrafico(data);
+            })
             .catch(err => console.error('Erro ao carregar dados:', err));
     }
     function montarTabela(dados) {
@@ -302,11 +335,115 @@
         });
     }
 
+    function montarGrafico(dados) {
+            if (!dados || dados.length === 0) return;
+
+            const labels = dados.map(d => {
+                const [data] = d["Data e Hora"].split(" "); // "08/04/2025"
+                const [dia, mes, ano] = data.split("/");
+
+                const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+                const anoCurto = ano.slice(-2); // "2025" -> "25"
+
+                return [
+                    dia,
+                    `${meses[Number(mes) - 1]}`
+                ];
+            });
+            const centro2 = dados.map(d => Number(d["Centro 2"]));
+            const centro3 = dados.map(d => Number(d["Centro 3"]));
+            const centro4 = dados.map(d => Number(d["Centro 4"]));
+
+            const ctx = document.getElementById('lineChart').getContext('2d');
+
+            if (lineChart) {
+                lineChart.destroy();
+            }
+
+            lineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Centro 2',
+                            data: centro2,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        },
+                        {
+                            label: 'Centro 3',
+                            data: centro3,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        },
+                        {
+                            label: 'Centro 4',
+                            data: centro4,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title: function(context){
+                                    const index = context[0].dataIndex;
+                                    return dados[index]["Data e Hora"]
+                                    .replace('T',' ')
+                                    .replace('.000Z', '');
+                                }
+                            }
+                        },
+                        legend: {
+                            labels: {
+                                color: document.body.classList.contains('dark') ? '#000' : '#fff'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: document.body.classList.contains('dark') ? '#000' : '#fff',
+                                font: {
+                                    size: 9
+                                }
+                            },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: {
+                                color: document.body.classList.contains('dark') ? '#000' : '#fff',
+                                font: {
+                                    size: 9
+                                },
+                                callback: function(value) {
+                                    return value + ' V';
+                                }
+                            },
+                            grid: { display: true }
+                        }
+                    }
+                }
+            });
+        }
+
     carregarDados();
     atualizarDataHora();
     // atualiza a cada 5 minutos
-    setInterval(carregarDados, 3000);
-    setInterval(atualizarDataHora, 3000);
+    setInterval(carregarDados, 300000);
+    setInterval(atualizarDataHora, 300000);
   </script>
 
 </body>
