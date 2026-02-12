@@ -80,6 +80,7 @@
         font-size: 14px;
         font-weight: bold;
         text-align: center;
+        padding-top: 5px;
     }
 
     .datetime-box .datetime-sub {
@@ -184,7 +185,9 @@
         text-align: left;
         white-space: nowrap;
     }
-    
+    #data-table td {
+        color: #ffffff;  /* valores */
+    }
 
     #data-table th {
         font-weight: 600;
@@ -231,11 +234,12 @@
         right: 10px;
 
         width: 220px;
-        height: 120px;
+        height: 80px;
 
         background: rgba(255,255,255,0.05);
         border-radius: 20px;
-        padding: 15px;
+        padding: 7px;
+        padding-left: 15px;
         box-sizing: border-box;
 
         display: flex;
@@ -255,17 +259,17 @@
     }
 
     .kpi-title {
-        font-size: 14px;
+        font-size: 10px;
         font-weight: 600;
     }
 
     .kpi-trend {
-        font-size: 18px;
+        font-size: 14px;
         font-weight: bold;
     }
 
     .kpi-value {
-        font-size: 36px;
+        font-size: 35px;
         font-weight: bold;
         transition: transform 0.2s ease, opacity 0.2s ease;
     }
@@ -311,6 +315,9 @@
             Média mês: --
         </div>
     </div>
+    <div class="chart-container" style="top: 105px; height: 25%;">
+        <canvas id="barChart"></canvas>
+    </div>
     <div class="chart-container">
         <canvas id="lineChart"></canvas>
     </div>
@@ -345,7 +352,10 @@
             lineChart.options.scales.x.ticks.color = isDark ? '#000' : '#fff';
             lineChart.options.scales.y.ticks.color = isDark ? '#000' : '#fff';
             lineChart.options.scales.y2.ticks.color = isDark ? '#000' : '#fff';
+            barChart.options.scales.x.ticks.color = isDark ? '#000' : '#fff';
+            barChart.options.scales.y.ticks.color = isDark ? '#000' : '#fff';
             lineChart.update();
+            barChart.update();
         }
     });
 
@@ -442,6 +452,7 @@
                 montarTabela(data);
                 montarGrafico(data);
                 atualizarCentro8(data);
+                montarGraficoEnergia(data);
             })
             .catch(err => console.error('Erro ao carregar dados:', err));
     }
@@ -491,25 +502,27 @@
     function montarGrafico(dados) {
             if (!dados || dados.length === 0) return;
 
-            const labels = dados.map(d => {
+            const dadosOrdenaos = [...dados].reverse();
+
+            const labels = dadosOrdenaos.map(d => {
                 const [data] = d["Data e Hora"].split(" "); // "08/04/2025"
                 const [dia, mes, ano] = data.split("/");
 
                 const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
-                const anoCurto = ano.slice(-2); // "2025" -> "25"
+                
 
                 return [
                     dia,
                     `${meses[Number(mes) - 1]}`
                 ];
             });
-            const centro2 = dados.map(d => Number(d["Centro 1"]));
-            const centro3 = dados.map(d => Number(d["Centro 2"]));
-            const centro4 = dados.map(d => Number(d["Centro 3"]));
-            const centro5 = dados.map(d => Number(d["Centro 4"]));
-            const centro6 = dados.map(d => Number(d["Centro 5"]));
-            const centro7 = dados.map(d => Number(d["Centro 6"]));
+            const centro2 = dadosOrdenaos.map(d => Number(d["Centro 1"]));
+            const centro3 = dadosOrdenaos.map(d => Number(d["Centro 2"]));
+            const centro4 = dadosOrdenaos.map(d => Number(d["Centro 3"]));
+            const centro5 = dadosOrdenaos.map(d => Number(d["Centro 4"]));
+            const centro6 = dadosOrdenaos.map(d => Number(d["Centro 5"]));
+            const centro7 = dadosOrdenaos.map(d => Number(d["Centro 6"]));
 
             const ctx = document.getElementById('lineChart').getContext('2d');
 
@@ -586,7 +599,7 @@
                             callbacks: {
                                 title: function(context){
                                     const index = context[0].dataIndex;
-                                    return dados[index]["Data e Hora"]
+                                    return dadosOrdenaos[index]["Data e Hora"]
                                     .replace('T',' ')
                                     .replace('.000Z', '');
                                 }
@@ -611,6 +624,7 @@
                         y: {type: 'linear',
                             position: 'left',
                             color: document.body.classList.contains('dark') ? '#000' : '#fff',
+                            min: 0,
                             ticks: {
                                 color: document.body.classList.contains('dark') ? '#000' : '#fff',
                                 font: {
@@ -624,6 +638,7 @@
                         },
                         y2: {
                             position: 'right',
+                            max: 50,
                             ticks: {
                                 color: document.body.classList.contains('dark') ? '#000' : '#fff',
                                 font: {
@@ -640,7 +655,126 @@
                     }
                 }
             });
+    }
+
+    let barChart;
+
+    function montarGraficoEnergia(dados) {
+    if (!dados || dados.length < 2) return;
+
+    const LIMITE_INTERVALO_MS = 5 * 60 * 1000;
+
+    const dadosOrdenados = [...dados].sort((a, b) => {
+        return converterData(a["Data e Hora"]) - converterData(b["Data e Hora"]);
+    });
+
+    const energiaRetangular = {};
+    const energiaTrapezoidal = {};
+
+    for (let i = 1; i < dadosOrdenados.length; i++) {
+
+        const atual = dadosOrdenados[i];
+        const anterior = dadosOrdenados[i - 1];
+
+        const dataAtual = converterData(atual["Data e Hora"]);
+        const dataAnterior = converterData(anterior["Data e Hora"]);
+
+        const deltaMs = dataAtual - dataAnterior;
+
+        if (deltaMs > LIMITE_INTERVALO_MS || deltaMs <= 0) continue;
+
+        const deltaHoras = deltaMs / (1000 * 60 * 60);
+
+        const pAtual = Number(atual["Centro 7"]);
+        const pAnterior = Number(anterior["Centro 7"]);
+
+        // Método 1 — Retangular
+        const eRet = (pAtual * deltaHoras) / 1000;
+
+        // Método 2 — Trapezoidal
+        const eTrap = (((pAnterior + pAtual) / 2) * deltaHoras) / 1000;
+
+        const dia = formatarDataSomente(dataAtual);
+
+        if (!energiaRetangular[dia]) {
+            energiaRetangular[dia] = 0;
+            energiaTrapezoidal[dia] = 0;
         }
+
+        energiaRetangular[dia] += eRet;
+        energiaTrapezoidal[dia] += eTrap;
+    }
+
+    const datas = Object.keys(energiaRetangular).sort((a, b) => {
+        return converterData(a + " 00:00:00") - converterData(b + " 00:00:00");
+    });
+
+    //const valoresRet = datas.map(d => energiaRetangular[d]);
+    const valoresTrap = datas.map(d => energiaTrapezoidal[d]);
+
+    const ctx = document.getElementById('barChart').getContext('2d');
+
+    if (barChart) barChart.destroy();
+
+    barChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: datas,
+            datasets: [
+ /*               {
+                    label: 'Retangular',
+                    data: valoresRet,
+                    borderWidth: 1
+                },*/
+                {
+                    label: 'Trapezoidal',
+                    data: valoresTrap,
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: document.body.classList.contains('dark') ? '#000' : '#fff',
+                        font: { size: 9 }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: document.body.classList.contains('dark') ? '#000' : '#fff',
+                        font: { size: 9 },
+                        callback: function(value) {
+                            return value.toFixed(2) + " kWh";
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+    function converterData(dataStr) {
+        const [data, hora] = dataStr.split(" ");
+        const [dia, mes, ano] = data.split("/");
+        return new Date(`${ano}-${mes}-${dia}T${hora}`);
+    }
+
+    function formatarDataSomente(dateObj) {
+        const dia = String(dateObj.getDate()).padStart(2, '0');
+        const mes = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const ano = dateObj.getFullYear();
+        return `${dia}/${mes}/${ano}`;
+    }
 
     carregarDados();
     atualizarDataHora();
