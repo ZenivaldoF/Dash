@@ -217,12 +217,70 @@
         border-radius: 20px;
         padding: 10px;
         box-sizing: border-box;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
 
     /* modo dark */
     body.dark .chart-container {
         background: rgba(0,0,0,0.05);
     }
+
+    .kpi-card {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+
+        width: 220px;
+        height: 120px;
+
+        background: rgba(255,255,255,0.05);
+        border-radius: 20px;
+        padding: 15px;
+        box-sizing: border-box;
+
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+
+        color: #ffffff;
+    }
+
+    .kpi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .kpi-title {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .kpi-trend {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .kpi-value {
+        font-size: 36px;
+        font-weight: bold;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .kpi-footer {
+        font-size: 11px;
+        opacity: 0.7;
+    }
+
+    /* Dark Mode */
+    body.dark .kpi-card {
+        color: #000000;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
   </style>
 
   
@@ -242,6 +300,17 @@
   </div>
 
   <div class="main-container">
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-title">Potência Aparente</span>
+            <span class="kpi-trend" id="centro8-trend">→</span>
+        </div>
+
+        <div class="kpi-value" id="centro8-valor">--</div>
+        <div class="kpi-footer" id="centro8-data">
+            Média mês: --
+        </div>
+    </div>
     <div class="chart-container">
         <canvas id="lineChart"></canvas>
     </div>
@@ -268,7 +337,90 @@
         icon.classList.toggle('moon');
         icon.classList.toggle('sun');
         document.body.classList.toggle('dark');
+        const isDark = document.body.classList.contains('dark');
+
+        if (lineChart) {
+            lineChart.options.plugins.legend.labels.color = isDark ? '#000' : '#fff';
+
+            lineChart.options.scales.x.ticks.color = isDark ? '#000' : '#fff';
+            lineChart.options.scales.y.ticks.color = isDark ? '#000' : '#fff';
+            lineChart.options.scales.y2.ticks.color = isDark ? '#000' : '#fff';
+            lineChart.update();
+        }
     });
+
+    function atualizarCentro8(dados) {
+        if (!dados || dados.length < 2) return;
+
+
+        const agora = new Date();
+        const mesAtual = agora.getMonth();
+        const anoAtual = agora.getFullYear();
+
+        const ultimo = dados[0];
+        const anterior = dados[1];
+
+        // Filtra apenas registros do mês atual
+        const dadosMesAtual = dados.filter(d => {
+            const dataStr = d["Data e Hora"]; // "08/04/2025 21:18:20"
+
+            const [dataParte] = dataStr.split(" ");
+            const [dia, mes, ano] = dataParte.split("/");
+
+            const agora = new Date();
+            const mesAtual = agora.getMonth() + 1; // 1-12
+            const anoAtual = agora.getFullYear();
+
+            return Number(mes) === mesAtual &&
+                Number(ano) === anoAtual;
+        });
+
+
+        if (dadosMesAtual.length === 0) return;
+
+        const soma = dadosMesAtual.reduce((acc, item) => {
+            return acc + Number(item["Centro 8"]);
+        }, 0);
+
+        const mediaMes = soma / dadosMesAtual.length;
+
+        const valorAtual = Number(ultimo["Centro 8"]);
+        const valorAnterior = Number(anterior["Centro 8"]);
+
+        const elementoValor = document.getElementById("centro8-valor");
+        const elementoTrend = document.getElementById("centro8-trend");
+        const elementoData = document.getElementById("centro8-data");
+
+        // Atualiza valor com animação
+        elementoValor.style.opacity = 0;
+        setTimeout(() => {
+            elementoValor.textContent = valorAtual.toFixed(2) + " VA";
+            elementoValor.style.opacity = 1;
+            elementoValor.style.transform = "scale(1.05)";
+            setTimeout(() => {
+                elementoValor.style.transform = "scale(1)";
+            }, 150);
+        }, 150);
+
+        // Define tendência
+        const diferencaPercentual = ((valorAtual - mediaMes) / mediaMes) * 100;
+
+        if (diferencaPercentual > 1) { // margem de 1% para evitar ruído
+            elementoTrend.textContent = "↑";
+            elementoTrend.style.color = "#d50000"; // vermelho
+        } 
+        else if (diferencaPercentual < -1) {
+            elementoTrend.textContent = "↓";
+            elementoTrend.style.color = "#00c853"; // verde
+        } 
+        else {
+            elementoTrend.textContent = "→";
+            elementoTrend.style.color = "#999999";
+        }
+
+        elementoData.textContent = "Média mês: " + mediaMes.toFixed(2) + " VA";
+
+    }
     function atualizarDataHora() {
         const agora = new Date();
 
@@ -289,6 +441,7 @@
             .then(data => {
                 montarTabela(data);
                 montarGrafico(data);
+                atualizarCentro8(data);
             })
             .catch(err => console.error('Erro ao carregar dados:', err));
     }
@@ -354,6 +507,9 @@
             const centro2 = dados.map(d => Number(d["Centro 1"]));
             const centro3 = dados.map(d => Number(d["Centro 2"]));
             const centro4 = dados.map(d => Number(d["Centro 3"]));
+            const centro5 = dados.map(d => Number(d["Centro 4"]));
+            const centro6 = dados.map(d => Number(d["Centro 5"]));
+            const centro7 = dados.map(d => Number(d["Centro 6"]));
 
             const ctx = document.getElementById('lineChart').getContext('2d');
 
@@ -367,29 +523,59 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'Centro 2',
+                            label: 'V_1',
                             data: centro2,
                             borderWidth: 2,
                             tension: 0.3,
                             pointRadius: 0,
-                            pointHoverRadius: 0
+                            pointHoverRadius: 0,
+                            yAxisID: 'y',
                         },
                         {
-                            label: 'Centro 3',
+                            label: 'V_2',
                             data: centro3,
                             borderWidth: 2,
                             tension: 0.3,
                             pointRadius: 0,
-                            pointHoverRadius: 0
+                            pointHoverRadius: 0,
+                            yAxisID: 'y',
                         },
                         {
-                            label: 'Centro 4',
+                            label: 'V_3',
                             data: centro4,
                             borderWidth: 2,
                             tension: 0.3,
                             pointRadius: 0,
-                            pointHoverRadius: 0
-                        }
+                            pointHoverRadius: 0,
+                            yAxisID: 'y',
+                        },
+                        {
+                            label: 'A_1',
+                            data: centro5,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            yAxisID: 'y2',
+                        },
+                        {
+                            label: 'A_2',
+                            data: centro6,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            yAxisID: 'y2',
+                        },
+                        {
+                            label: 'A_3',
+                            data: centro7,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            yAxisID: 'y2',
+                        },
                     ]
                 },
                 options: {
@@ -422,7 +608,9 @@
                             },
                             grid: { display: false }
                         },
-                        y: {
+                        y: {type: 'linear',
+                            position: 'left',
+                            color: document.body.classList.contains('dark') ? '#000' : '#fff',
                             ticks: {
                                 color: document.body.classList.contains('dark') ? '#000' : '#fff',
                                 font: {
@@ -433,6 +621,21 @@
                                 }
                             },
                             grid: { display: true }
+                        },
+                        y2: {
+                            position: 'right',
+                            ticks: {
+                                color: document.body.classList.contains('dark') ? '#000' : '#fff',
+                                font: {
+                                    size: 9
+                                },
+                                callback: function(value) {
+                                    return value + ' A';
+                                }
+                            },
+                            grid: {
+                                drawOnChartArea: false // evita duplicar linhas de grade
+                            }
                         }
                     }
                 }
