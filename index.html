@@ -144,6 +144,7 @@
     .footer-text {
         position: fixed;
         bottom: 8px;
+        right: 20px;
         width: 100%;
         text-align: right;
         font-size: 11px;
@@ -304,9 +305,49 @@
   </div>
 
   <div class="main-container">
-    <div class="kpi-card">
+    <div class="kpi-card" style="top: 10px; left: 10px;">
         <div class="kpi-header">
-            <span class="kpi-title">Potência Aparente</span>
+            <span class="kpi-title">Tensão Fase A</span>
+        </div>
+
+        <div class="kpi-value" id="tensao-atual-1">--</div>
+        <div class="kpi-footer" id="tensao-mim-max-1">
+            min: -- | max: --
+        </div>
+    </div>
+    <div class="kpi-card" style="top: 10px; left: 250px;">
+        <div class="kpi-header">
+            <span class="kpi-title">Tensão Fase B</span>
+        </div>
+
+        <div class="kpi-value" id="tensao-atual-2">--</div>
+        <div class="kpi-footer" id="tensao-mim-max-2">
+            min: -- | max: --
+        </div>
+    </div>
+    <div class="kpi-card" style="top: 10px; left: 490px;">
+        <div class="kpi-header">
+            <span class="kpi-title">Tensão Fase C</span>
+        </div>
+
+        <div class="kpi-value" id="tensao-atual-3">--</div>
+        <div class="kpi-footer" id="tensao-mim-max-3">
+            min: -- | max: --
+        </div>
+    </div>
+    <div class="kpi-card" style="top: 10px; right: 490px;">
+        <div class="kpi-header">
+            <span class="kpi-title">Energia</span>
+        </div>
+
+        <div class="kpi-value" id="energia-mes-valor">--</div>
+        <div class="kpi-footer" id="energia-mes-media">
+            Estimativa: --
+        </div>
+    </div>
+    <div class="kpi-card" style="top: 10px; right: 250px;">
+        <div class="kpi-header">
+            <span class="kpi-title">Potência</span>
             <span class="kpi-trend" id="centro8-trend">→</span>
         </div>
 
@@ -315,7 +356,18 @@
             Média mês: --
         </div>
     </div>
-    <div class="chart-container" style="top: 105px; height: 25%;">
+    <div class="kpi-card">
+        <div class="kpi-header">
+            <span class="kpi-title">Fator de Potência</span>
+            <span class="kpi-trend" id="fp-trend">●</span>
+        </div>
+
+        <div class="kpi-value" id="fp">--</div>
+        <div class="kpi-footer" id="fp-mim-max">
+            min: -- | max: --
+        </div>
+    </div>
+    <div class="chart-container" style="top: 105px; height: 25%; width: 99%;">
         <canvas id="barChart"></canvas>
     </div>
     <div class="chart-container">
@@ -389,28 +441,21 @@
         if (dadosMesAtual.length === 0) return;
 
         const soma = dadosMesAtual.reduce((acc, item) => {
-            return acc + Number(item["Centro 8"]);
+            return acc + Number(item["Centro 7"]);
         }, 0);
 
         const mediaMes = soma / dadosMesAtual.length;
 
-        const valorAtual = Number(ultimo["Centro 8"]);
-        const valorAnterior = Number(anterior["Centro 8"]);
+        const valorAtual = Number(ultimo["Centro 7"]);
+        const valorAnterior = Number(anterior["Centro 7"]);
 
         const elementoValor = document.getElementById("centro8-valor");
         const elementoTrend = document.getElementById("centro8-trend");
         const elementoData = document.getElementById("centro8-data");
 
         // Atualiza valor com animação
-        elementoValor.style.opacity = 0;
-        setTimeout(() => {
-            elementoValor.textContent = valorAtual.toFixed(2) + " VA";
-            elementoValor.style.opacity = 1;
-            elementoValor.style.transform = "scale(1.05)";
-            setTimeout(() => {
-                elementoValor.style.transform = "scale(1)";
-            }, 150);
-        }, 150);
+        
+        animarKPI(elementoValor, valorAtual.toFixed(2) + " W");
 
         // Define tendência
         const diferencaPercentual = ((valorAtual - mediaMes) / mediaMes) * 100;
@@ -428,7 +473,7 @@
             elementoTrend.style.color = "#999999";
         }
 
-        elementoData.textContent = "Média mês: " + mediaMes.toFixed(2) + " VA";
+        elementoData.textContent = "Média mês: " + mediaMes.toFixed(2) + " W";
 
     }
     function atualizarDataHora() {
@@ -453,6 +498,10 @@
                 montarGrafico(data);
                 atualizarCentro8(data);
                 montarGraficoEnergia(data);
+                atualizarDataHora();
+                atualizarEnergiaMes(data);
+                atualizarKpiTensao(data);
+                fator_potencia(data);
             })
             .catch(err => console.error('Erro ao carregar dados:', err));
     }
@@ -727,8 +776,10 @@
                     borderWidth: 1
                 },*/
                 {
-                    label: 'Trapezoidal',
+                    label: 'Energia',
                     data: valoresTrap,
+                    backgroundColor: 'rgba(0, 200, 83, 0.6)',  // verde
+                    borderColor: 'rgba(0, 200, 83, 1)',
                     borderWidth: 1
                 }
             ]
@@ -776,11 +827,193 @@
         return `${dia}/${mes}/${ano}`;
     }
 
+    function atualizarEnergiaMes(dados) {
+
+        if (!dados || dados.length < 2) return;
+
+        const LIMITE_INTERVALO_MS = 5 * 60 * 1000;
+
+        let energiaAcumuladaMes = 0;
+
+        const agora = new Date();
+        const inicioMes = new Date(
+            agora.getFullYear(),
+            agora.getMonth(),
+            1, 0, 0, 0
+        );
+
+        // Ordena por data crescente
+        const dadosOrdenados = [...dados].sort((a, b) => {
+            return converterData(a["Data e Hora"]) - converterData(b["Data e Hora"]);
+        });
+
+        for (let i = 1; i < dadosOrdenados.length; i++) {
+
+            const dataAnterior = converterData(dadosOrdenados[i - 1]["Data e Hora"]);
+            const dataAtual = converterData(dadosOrdenados[i]["Data e Hora"]);
+
+            if (dataAtual < inicioMes) continue;
+
+            const deltaMs = dataAtual - dataAnterior;
+
+            if (deltaMs > LIMITE_INTERVALO_MS || deltaMs <= 0) continue;
+
+            const deltaHoras = deltaMs / (1000 * 60 * 60);
+
+            const potenciaW = Number(dadosOrdenados[i]["Centro 7"]);
+
+            const energiaIntervalo = (potenciaW * deltaHoras) / 1000;
+
+            energiaAcumuladaMes += energiaIntervalo;
+        }
+
+        // =========================
+        // PROJEÇÃO POR MÉDIA HORÁRIA
+        // =========================
+
+        const horasPassadas = (agora - inicioMes) / (1000 * 60 * 60);
+
+        let projecaoMes = energiaAcumuladaMes;
+
+        if (horasPassadas > 0) {
+
+            const mediaHoraria = energiaAcumuladaMes / horasPassadas;
+
+            const diasNoMes = new Date(
+                agora.getFullYear(),
+                agora.getMonth() + 1,
+                0
+            ).getDate();
+   
+            const totalHorasMes = diasNoMes * 24;
+
+            projecaoMes = mediaHoraria * totalHorasMes;
+        }
+        
+        // =========================
+        // ATUALIZA O KPI NA TELA
+        // =========================
+
+        const elementoValor = document.getElementById("energia-mes-valor");
+        const elementoTrend = document.getElementById("energia-mes-trend");
+        const elementoFooter = document.getElementById("energia-mes-media");
+
+        animarKPI(elementoValor, energiaAcumuladaMes.toFixed(2) + " kWh");
+
+        elementoFooter.textContent = "Estimativa: " + projecaoMes.toFixed(2) + " kWh";
+
+    }
+    
+    function animarKPI(elemento, texto) {
+
+        elemento.style.opacity = 0;
+
+        setTimeout(() => {
+            elemento.textContent = texto;
+            elemento.style.opacity = 1;
+            elemento.style.transform = "scale(1.05)";
+
+            setTimeout(() => {
+                elemento.style.transform = "scale(1)";
+            }, 150);
+
+        }, 150);
+    }
+    
+    function atualizarKpiTensao(dados) {
+
+        if (!dados || dados.length === 0) return;
+
+        const agora = new Date();
+        const limite = new Date(agora.getTime() - (72 * 60 * 60 * 1000));
+
+        const ultimo = dados[0];
+        const valorAtual_1 = Number(ultimo["Centro 1"]);
+        const valorAtual_2 = Number(ultimo["Centro 2"]);
+        const valorAtual_3 = Number(ultimo["Centro 3"]);
+
+        const elementoValor_1 = document.getElementById("tensao-atual-1");
+        const elementoValor_2 = document.getElementById("tensao-atual-2");
+        const elementoValor_3 = document.getElementById("tensao-atual-3");
+        const elementoFooter_1 = document.getElementById("tensao-mim-max-1");
+        const elementoFooter_2 = document.getElementById("tensao-mim-max-2");
+        const elementoFooter_3 = document.getElementById("tensao-mim-max-3");
+
+        animarKPI(elementoValor_1, valorAtual_1.toFixed(2) + " V");
+        animarKPI(elementoValor_2, valorAtual_2.toFixed(2) + " V");
+        animarKPI(elementoValor_3, valorAtual_3.toFixed(2) + " V");
+
+        let minimo_1 = 500;
+        let minimo_2 = 500;
+        let minimo_3 = 500;
+        let maximo_1 = 0;
+        let maximo_2 = 0;
+        let maximo_3 = 0;
+
+        for(let i = 0; i < dados.length; i++){
+            const dataItem = converterData(dados[i]["Data e Hora"])
+
+            if(dataItem >= limite){
+                const valor_1 = Number(dados[i]["Centro 1"]);
+                const valor_2 = Number(dados[i]["Centro 2"]);
+                const valor_3 = Number(dados[i]["Centro 3"]);
+                if(!isNaN(valor_1)){
+                    if(valor_1 < minimo_1) minimo_1 = valor_1;
+                    if(valor_1 > maximo_1) maximo_1 = valor_1;
+                }
+                if(!isNaN(valor_2)){
+                    if(valor_2 < minimo_2) minimo_2 = valor_2;
+                    if(valor_2 > maximo_2) maximo_2 = valor_2;
+                }
+                if(!isNaN(valor_3)){
+                    if(valor_3 < minimo_3) minimo_3 = valor_3;
+                    if(valor_3 > maximo_3) maximo_3 = valor_3;
+                }
+            }
+        }
+
+        elementoFooter_1.textContent = "min: " + minimo_1.toFixed(2) + " V | max: " + maximo_1.toFixed(2) + " V";
+        elementoFooter_2.textContent = "min: " + minimo_2.toFixed(2) + " V | max: " + maximo_2.toFixed(2) + " V";
+        elementoFooter_3.textContent = "min: " + minimo_3.toFixed(2) + " V | max: " + maximo_3.toFixed(2) + " V";
+    };
+    
+    function fator_potencia(dados){
+        if (!dados || dados.length === 0) return;
+
+        const agora = new Date();
+        const limite = new Date(agora.getTime() - (72 * 60 * 60 * 1000));
+
+        let minimo = 100;
+        let maximo = -100;
+
+        const ultimo = dados[0];
+        const valorAtual = Number(ultimo["Centro 7"]) / Number(ultimo["Centro 8"]);
+
+        const elementoValor = document.getElementById("fp");
+        const elementoFooter = document.getElementById("fp-mim-max");
+        animarKPI(elementoValor, valorAtual.toFixed(2));
+
+        for(let i = 0; i < dados.length; i++){
+            const dataItem = converterData(dados[i]["Data e Hora"])
+
+            if(dataItem >= limite){
+                const valor = Number(dados[i]["Centro 7"]) / Number(dados[i]["Centro 8"]);
+                if(!isNaN(valor)){
+                    if(valor < minimo) minimo = valor;
+                    if(valor > maximo) maximo = valor;
+                }
+            }
+        }
+
+        elementoFooter.textContent = "min: " + minimo.toFixed(2) + " | max: " + maximo.toFixed(2);
+        
+
+    };
+
     carregarDados();
     atualizarDataHora();
     // atualiza a cada 5 minutos
     setInterval(carregarDados, 300000);
-    setInterval(atualizarDataHora, 300000);
   </script>
 
 </body>
