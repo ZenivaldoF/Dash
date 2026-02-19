@@ -260,7 +260,7 @@
     }
 
     .kpi-title {
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 600;
     }
 
@@ -285,7 +285,41 @@
         color: #000000;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
+    .progress-container {
+        width: 100%;
+        height: 18px;
+        background: #333;
+        border-radius: 20px;
+        overflow: hidden;
+    }
 
+    .progress-bar {
+        height: 100%;
+        width: 0%;
+        transition: width 0.8s ease-in-out, background 0.4s ease;
+    }
+    .progress-yellow {
+        background: linear-gradient(90deg, #ffff007e, #ffff00);
+    }
+
+    .progress-green {
+        background: linear-gradient(90deg, #00ff007e, #00ff00);
+    }
+
+    .progress-red {
+        background: linear-gradient(90deg, #ff00007e, #ff0000);
+    }
+    .progress-footer {
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+    }
+
+    .progress-value {
+        margin-top: 8px;
+        font-size: 13px;
+    }
   </style>
 
   
@@ -297,7 +331,7 @@
   </div>
 
   <div class="top-pill">
-    <span class="top-pill-text">Título do Dashboard</span>
+    <span class="top-pill-text">Painel de Acompanhamento</span>
   </div>
 
   <div class="top-right-icon" id="themeToggle">
@@ -335,7 +369,19 @@
             min: -- | max: --
         </div>
     </div>
-    <div class="kpi-card" style="top: 10px; right: 490px;">
+    <div class="kpi-card" style="top: 10px; left: 730px; width: 510px;">
+        <div class="kpi-title">Utilização da SE</div>
+
+        <div class="progress-container">
+            <div class="progress-bar" id="barra-centro8"></div>
+        </div>
+
+        <div class="progress-footer">
+            <div id="valor-centro8">-%</div>
+            <div id="valor-total-centro8">-</div>
+        </div>
+    </div>
+    <div class="kpi-card" style="top: 10px; right: 420px;">
         <div class="kpi-header">
             <span class="kpi-title">Energia</span>
         </div>
@@ -345,9 +391,9 @@
             Estimativa: --
         </div>
     </div>
-    <div class="kpi-card" style="top: 10px; right: 250px;">
+    <div class="kpi-card" style="top: 10px; right: 180px;">
         <div class="kpi-header">
-            <span class="kpi-title">Potência</span>
+            <span class="kpi-title">Demanda</span>
             <span class="kpi-trend" id="centro8-trend">→</span>
         </div>
 
@@ -356,7 +402,7 @@
             Média mês: --
         </div>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card" style="width: 150px;">
         <div class="kpi-header">
             <span class="kpi-title">Fator de Potência</span>
             <span class="kpi-trend" id="fp-trend">●</span>
@@ -502,6 +548,7 @@
                 atualizarEnergiaMes(data);
                 atualizarKpiTensao(data);
                 fator_potencia(data);
+                calculaUtilizacaoSE(data);
             })
             .catch(err => console.error('Erro ao carregar dados:', err));
     }
@@ -518,7 +565,6 @@
 
         // colunas (usa as chaves do primeiro objeto)
         const colunas = Object.keys(dados[0]);
-
         // monta cabeçalho
         const trHead = document.createElement('tr');
         colunas.forEach(col => {
@@ -991,6 +1037,8 @@
 
         const elementoValor = document.getElementById("fp");
         const elementoFooter = document.getElementById("fp-mim-max");
+        const elementoTrend = document.getElementById("fp-trend");
+
         animarKPI(elementoValor, valorAtual.toFixed(2));
 
         for(let i = 0; i < dados.length; i++){
@@ -1007,9 +1055,52 @@
 
         elementoFooter.textContent = "min: " + minimo.toFixed(2) + " | max: " + maximo.toFixed(2);
         
-
+        if(valorAtual > 0.95) elementoTrend.style.color = "#00c853";
+        else if (valorAtual > 0.92) elementoTrend.style.color = "#e2b924";
+        else elementoTrend.style.color = "#d50000";
     };
 
+    function calculaUtilizacaoSE(dados){
+        if (!dados || dados.length === 0) return;
+
+        const ultimoRegistro = dados[0];
+
+        const valorAtual = Number(ultimoRegistro["Centro 8"]);
+
+        const valorMaximo = 5000;
+
+        let percentualVisual = (valorAtual / (valorMaximo*1.2)) * 100;
+        let percentual = (valorAtual / valorMaximo) * 100;
+        if (percentualVisual > 100) percentualVisual = 100;
+
+        const barra = document.getElementById("barra-centro8");
+        const texto = document.getElementById("valor-centro8");
+        const SE = document.getElementById("valor-total-centro8");
+
+        barra.style.width = "0%";
+
+        void barra.offsetWidth;
+
+        barra.classList.remove("progress-yellow", "progress-green", "progress-red");
+
+        // Define cor conforme faixa
+        if (percentual < 50) {
+            barra.classList.add("progress-yellow");
+        } 
+        else if (percentual <= 100) {
+            barra.classList.add("progress-green");
+        } 
+        else {
+            barra.classList.add("progress-red");
+        }
+
+        barra.style.width = percentualVisual + "%";
+
+        texto.textContent = 
+            ((valorAtual/1000).toFixed(1)) + 
+            " kVA (" + percentual.toFixed(1) + "%)";
+        SE.textContent = (valorMaximo/1000) + " kVA";
+    }
     carregarDados();
     atualizarDataHora();
     // atualiza a cada 5 minutos
