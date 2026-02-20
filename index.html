@@ -363,7 +363,7 @@
             <span class="kpi-title">Tensão Fase A</span>
         </div>
 
-        <div class="kpi-value" id="tensao-atual-1">--</div>
+        <div class="kpi-value" id="tensao-atual-1" style="text-align: center;">--</div>
         <div class="kpi-footer" id="tensao-mim-max-1">
             min: -- | max: --
         </div>
@@ -373,17 +373,17 @@
             <span class="kpi-title">Tensão Fase B</span>
         </div>
 
-        <div class="kpi-value" id="tensao-atual-2">--</div>
+        <div class="kpi-value" id="tensao-atual-2" style="text-align: center;">--</div>
         <div class="kpi-footer" id="tensao-mim-max-2">
             min: -- | max: --
         </div>
     </div>
-    <div class="kpi-card" style="top: 10px; left: 490px;">
+    <div class="kpi-card" style="top: 10px; left: 490px; ">
         <div class="kpi-header">
             <span class="kpi-title">Tensão Fase C</span>
         </div>
 
-        <div class="kpi-value" id="tensao-atual-3">--</div>
+        <div class="kpi-value" id="tensao-atual-3" style="text-align: center;">--</div>
         <div class="kpi-footer" id="tensao-mim-max-3">
             min: -- | max: --
         </div>
@@ -406,7 +406,7 @@
             <span class="kpi-title">Energia</span>
         </div>
 
-        <div class="kpi-value" id="energia-mes-valor">--</div>
+        <div class="kpi-value" id="energia-mes-valor" style="text-align: center;">--</div>
         <div class="kpi-footer" id="energia-mes-media">
             Estimativa: --
         </div>
@@ -417,9 +417,9 @@
             <span class="kpi-trend" id="centro8-trend">→</span>
         </div>
 
-        <div class="kpi-value" id="centro8-valor">--</div>
+        <div class="kpi-value" id="centro8-valor" style="text-align: center;">--</div>
         <div class="kpi-footer" id="centro8-data">
-            Média mês: --
+            Demanda atual: --
         </div>
     </div>
     <div class="kpi-card" style="width: 150px;">
@@ -428,7 +428,7 @@
             <span class="kpi-trend" id="fp-trend">●</span>
         </div>
 
-        <div class="kpi-value" id="fp">--</div>
+        <div class="kpi-value" id="fp" style="text-align: center;">--</div>
         <div class="kpi-footer" id="fp-mim-max">
             min: -- | max: --
         </div>
@@ -510,6 +510,11 @@
             return acc + Number(item["Centro 7"]);
         }, 0);
 
+        const maior = dadosMesAtual.reduce((max, item) => {
+            const valor = Number(item["Centro 7"]);
+            return valor > max ? valor : max;
+        }, Number(dadosMesAtual[0]["Centro 7"]));
+
         const mediaMes = soma / dadosMesAtual.length;
 
         const valorAtual = Number(ultimo["Centro 7"]);
@@ -521,7 +526,7 @@
 
         // Atualiza valor com animação
         
-        animarKPI(elementoValor, valorAtual.toFixed(2) + " W");
+        animarKPI(elementoValor, (maior/1000).toFixed(2) + " kW");
 
         // Define tendência
         const diferencaPercentual = ((valorAtual - mediaMes) / mediaMes) * 100;
@@ -539,7 +544,7 @@
             elementoTrend.style.color = "#999999";
         }
 
-        elementoData.textContent = "Média mês: " + mediaMes.toFixed(2) + " W";
+        elementoData.textContent = "Demanda atual: " + (valorAtual/1000).toFixed(2) + " kW";
 
     }
     function atualizarDataHora() {
