@@ -589,12 +589,23 @@
         tbody.innerHTML = '';
 
         // colunas (usa as chaves do primeiro objeto)
-        const colunas = Object.keys(dados[0]);
+        const colunas = [
+            { chave: "Data e Hora", nome: "Data/Hora" },
+            { chave: "Centro 1", nome: "Tensão Fase A" },
+            { chave: "Centro 2", nome: "Tensão Fase B" },
+            { chave: "Centro 3", nome: "Tensão Fase C" },
+            { chave: "Centro 4", nome: "Corrente A" },
+            { chave: "Centro 5", nome: "Corrente B" },
+            { chave: "Centro 6", nome: "Corrente C" },
+            { chave: "Centro 7", nome: "Potência Ativa" },
+            { chave: "Centro 8", nome: "Potência Aparente" },
+            { chave: "Centro 9", nome: "Potência Reativa" }
+        ];
         // monta cabeçalho
         const trHead = document.createElement('tr');
         colunas.forEach(col => {
             const th = document.createElement('th');
-            th.textContent = col;
+            th.textContent = col.nome;
             trHead.appendChild(th)
         });
         thead.appendChild(trHead);
@@ -605,7 +616,7 @@
 
         colunas.forEach(col => {
             const td = document.createElement('td');
-            let valor = linha[col];
+            let valor = linha[col.chave];
 
             if (typeof valor === 'string' && valor.includes('T')) {
                 valor = valor.replace('T', ' ').replace('.000Z', '');
@@ -656,7 +667,7 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'V_1',
+                            label: 'U A',
                             data: centro2,
                             borderWidth: 2,
                             tension: 0.3,
@@ -665,7 +676,7 @@
                             yAxisID: 'y',
                         },
                         {
-                            label: 'V_2',
+                            label: 'U B',
                             data: centro3,
                             borderWidth: 2,
                             tension: 0.3,
@@ -674,7 +685,7 @@
                             yAxisID: 'y',
                         },
                         {
-                            label: 'V_3',
+                            label: 'U C',
                             data: centro4,
                             borderWidth: 2,
                             tension: 0.3,
@@ -683,7 +694,7 @@
                             yAxisID: 'y',
                         },
                         {
-                            label: 'A_1',
+                            label: 'I A',
                             data: centro5,
                             borderWidth: 2,
                             tension: 0.3,
@@ -692,7 +703,7 @@
                             yAxisID: 'y2',
                         },
                         {
-                            label: 'A_2',
+                            label: 'I B',
                             data: centro6,
                             borderWidth: 2,
                             tension: 0.3,
@@ -701,7 +712,7 @@
                             yAxisID: 'y2',
                         },
                         {
-                            label: 'A_3',
+                            label: 'I C',
                             data: centro7,
                             borderWidth: 2,
                             tension: 0.3,
@@ -744,7 +755,7 @@
                         y: {type: 'linear',
                             position: 'left',
                             color: document.body.classList.contains('dark') ? '#000' : '#fff',
-                            min: 0,
+                            min: 100,
                             ticks: {
                                 color: document.body.classList.contains('dark') ? '#000' : '#fff',
                                 font: {
@@ -758,7 +769,6 @@
                         },
                         y2: {
                             position: 'right',
-                            max: 50,
                             ticks: {
                                 color: document.body.classList.contains('dark') ? '#000' : '#fff',
                                 font: {
@@ -941,8 +951,25 @@
         // =========================
         // PROJEÇÃO POR MÉDIA HORÁRIA
         // =========================
+        
+        let primeiraDataValida = null;
 
-        const horasPassadas = (agora - inicioMes) / (1000 * 60 * 60);
+        for (let i = 0; i < dadosOrdenados.length; i++) {
+            const data = converterData(dadosOrdenados[i]["Data e Hora"]);
+
+            if (data >= inicioMes) {
+                primeiraDataValida = data;
+                break;
+            }
+        }
+
+        // define o início real (o mais próximo do mês)
+        const inicioReal = primeiraDataValida && primeiraDataValida > inicioMes
+            ? primeiraDataValida
+            : inicioMes;
+
+        // calcula horas passadas
+        const horasPassadas = (agora - inicioReal) / (1000 * 60 * 60);
 
         let projecaoMes = energiaAcumuladaMes;
 
@@ -1093,7 +1120,7 @@
         const valorAtual = Number(ultimoRegistro["Centro 8"]);
         //const valorAtual = 5000;
 
-        const valorMaximo = 5000;
+        const valorMaximo = 70;
 
         let percentualVisual = (valorAtual / (valorMaximo*1.2)) * 100;
         let percentual = (valorAtual / valorMaximo) * 100;
@@ -1123,7 +1150,7 @@
         barra.style.width = percentualVisual + "%";
 
         texto.textContent = 
-            ((valorAtual/1000).toFixed(1)) + 
+            ((valorAtual/1000).toFixed(3)) + 
             " kVA (" + percentual.toFixed(1) + "%)";
     
         SE.textContent = (valorMaximo/1000) + " kVA";
